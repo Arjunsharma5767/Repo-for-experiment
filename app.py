@@ -1,7 +1,7 @@
 import os
 import cv2
 import numpy as np
-from flask import Flask, request, send_from_directory, render_template_string, url_for
+from flask import Flask, request, send_from_directory, render_template_string, url_for, redirect
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -195,6 +195,15 @@ hr {
   border: 0; 
   border-top: 1px solid #ccc;
 }
+.comparison-slider {
+  width: 100%;
+  max-width: 700px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  margin: 20px auto;
+}
 """
 
 # ========== INDEX HTML ==========
@@ -281,16 +290,21 @@ RESULT_HTML = """
     <style>{{ css }}</style>
 
     <!-- jQuery + twentytwenty -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/twentytwenty.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/css/twentytwenty.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.event.move/2.0.0/jquery.event.move.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/jquery.twentytwenty.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>✨ Sharpened Result</h1>
 
-      
+        <div class="comparison-slider">
+            <div class="twentytwenty-container">
+                <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original Image">
+                <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened Image">
+            </div>
+        </div>
 
         <hr>
 
@@ -328,7 +342,7 @@ RESULT_HTML = """
 # ========== IMAGE PROCESSING ==========
 def sharpen_image(input_path, output_path, intensity=3, grayscale=False):
     """
-    Apply sharpening filter to image
+    Apply sharpening filter to image with improved algorithm
     
     Parameters:
     - input_path: Path to the input image
@@ -336,25 +350,58 @@ def sharpen_image(input_path, output_path, intensity=3, grayscale=False):
     - intensity: Sharpening intensity (1-5)
     - grayscale: Whether to convert to grayscale
     """
-    # Read the image
-    image = cv2.imread(input_path)
-    
-    # Convert to grayscale if requested
-    if grayscale:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        # Convert back to BGR so we can save as color (but still grayscale)
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    
-    # Create sharpening kernel - adjust central value based on intensity
-    kernel = np.array([[-1, -1, -1],
-                      [-1, 9 + (intensity - 3), -1],
-                      [-1, -1, -1]])
-    
-    # Apply the sharpening filter
-    sharpened = cv2.filter2D(image, -1, kernel)
-    
-    # Save the processed image
-    cv2.imwrite(output_path, sharpened)
+    try:
+        # Read the image
+        image = cv2.imread(input_path)
+        
+        if image is None:
+            raise ValueError(f"Failed to load image from {input_path}")
+        
+        # Keep a copy of the original for blending
+        original = image.copy()
+        
+        # Convert to grayscale if requested
+        if grayscale:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # Convert back to BGR so we can save as color (but still grayscale)
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            original = image.copy()  # Update original to grayscale version
+        
+        # Method 1: Unsharp Mask - more effective than simple kernel
+        # Create a blurred version of the image
+        gaussian = cv2.GaussianBlur(image, (0, 0), 2)
+        
+        # Calculate the unsharp mask by subtracting the blurred image
+        unsharp_mask = cv2.addWeighted(image, 1.5, gaussian, -0.5, 0)
+        
+        # Method 2: Use Laplacian for edge detection
+        laplacian = cv2.Laplacian(image, cv2.CV_8U)
+        
+        # Convert to float for math operations
+        image_float = image.astype(np.float32)
+        laplacian_float = laplacian.astype(np.float32)
+        
+        # Apply intensity factor to Laplacian (edge emphasis)
+        intensity_factor = intensity * 0.4  # Scale the intensity for better control
+        sharpened = image_float + intensity_factor * laplacian_float
+        
+        # Clip values to valid range [0, 255]
+        sharpened = np.clip(sharpened, 0, 255).astype(np.uint8)
+        
+        # For high intensity, blend with unsharp mask for extra sharpness
+        if intensity > 3:
+            blend_ratio = (intensity - 3) / 2.0  # 0 to 1 for intensity 3-5
+            sharpened = cv2.addWeighted(sharpened, 1.0 - blend_ratio, unsharp_mask, blend_ratio, 0)
+        
+        # Save the processed image
+        cv2.imwrite(output_path, sharpened)
+        
+    except Exception as e:
+        print(f"Error processing image: {str(e)}")
+        # If processing fails, copy the original to the output
+        if os.path.exists(input_path):
+            import shutil
+            shutil.copy(input_path, output_path)
 
 # ========== ROUTES ==========
 @app.route('/', methods=['GET', 'POST'])
