@@ -200,8 +200,8 @@ INDEX_HTML = """
       <input type="file" id="file-input" name="image" accept="image/*" required>
       <div class="control-panel">
         <div class="slider-container">
-          <label for="intensity">Sharpening Intensity: <span id="intensity-value">5</span></label>
-          <input type="range" id="intensity" name="intensity" class="slider" min="1" max="10" value="5">
+          <label for="intensity">Sharpening Intensity: <span id="intensity-value">2</span></label>
+          <input type="range" id="intensity" name="intensity" class="slider" min="1" max="5" value="3">
         </div>
         
         <div class="checkbox-container">
