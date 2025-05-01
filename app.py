@@ -82,6 +82,12 @@ input[type="file"] {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
+.button.download {
+  background: #34a853;
+}
+.button.download:hover {
+  background: #2d9249;
+}
 .slider-container {
   margin: 20px 0;
   text-align: left;
@@ -146,6 +152,31 @@ img:hover {
   text-decoration: none;
   font-weight: 600;
 }
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 15px 0;
+  padding: 5px;
+}
+.checkbox-container input[type="checkbox"] {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+.checkbox-container label {
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+}
 """
 
 # ========== INDEX HTML ==========
@@ -172,6 +203,12 @@ INDEX_HTML = """
           <label for="intensity">Sharpening Intensity: <span id="intensity-value">5</span></label>
           <input type="range" id="intensity" name="intensity" class="slider" min="1" max="10" value="5">
         </div>
+        
+        <div class="checkbox-container">
+          <input type="checkbox" id="grayscale" name="grayscale" value="yes">
+          <label for="grayscale">Convert to Grayscale</label>
+        </div>
+        
         <button type="submit" class="button">Upload & Sharpen</button>
       </div>
     </form>
@@ -237,20 +274,36 @@ RESULT_HTML = """
           <img src="{{ url_for('processed_file', filename=filename) }}" alt="Processed Image">
         </div>
       </div>
-      <a href="/" class="back-link">⏪ Go Back</a>
+      
+      <div class="action-buttons">
+        <a href="{{ url_for('download_file', filename=filename) }}" class="button download">⬇️ Download Image</a>
+        <a href="/" class="button">⏪ Go Back</a>
+      </div>
     </div>
   </div>
 </body>
 </html>
 """
 
-# ========== SHARPEN FUNCTION ==========
-def sharpen_image(input_path, output_path, intensity=5):
+# ========== IMAGE PROCESSING FUNCTIONS ==========
+def sharpen_image(input_path, output_path, intensity=5, grayscale=False):
     image = cv2.imread(input_path)
+    
+    # Convert to grayscale if option is selected
+    if grayscale:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Convert back to 3 channels for consistent processing
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    
+    # Create sharpening kernel with adjustable intensity
     kernel = np.array([[0, -1, 0],
-                       [-1, 4 + intensity, -1],
-                       [0, -1, 0]])
+                      [-1, 4 + intensity, -1],
+                      [0, -1, 0]])
+    
+    # Apply sharpening filter
     sharpened = cv2.filter2D(image, -1, kernel)
+    
+    # Save the processed image
     cv2.imwrite(output_path, sharpened)
 
 # ========== ROUTES ==========
@@ -259,18 +312,31 @@ def index():
     if request.method == 'POST':
         file = request.files['image']
         intensity = int(request.form.get('intensity', 5))
+        grayscale = 'grayscale' in request.form
+        
         if file:
             filename = secure_filename(file.filename)
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             output_path = os.path.join(app.config['PROCESSED_FOLDER'], filename)
+            
             file.save(input_path)
-            sharpen_image(input_path, output_path, intensity)
+            sharpen_image(input_path, output_path, intensity, grayscale)
+            
             return render_template_string(RESULT_HTML, filename=filename, css=CSS_STYLE)
+    
     return render_template_string(INDEX_HTML, css=CSS_STYLE)
 
 @app.route('/processed/<filename>')
 def processed_file(filename):
     return send_from_directory(app.config['PROCESSED_FOLDER'], filename)
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    return send_from_directory(
+        directory=app.config['PROCESSED_FOLDER'],
+        path=filename,
+        as_attachment=True
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)
