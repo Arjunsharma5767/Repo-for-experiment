@@ -192,7 +192,7 @@ INDEX_HTML = """
 <body>
   <div class="container">
     <h1>🔍 Professional Image Sharpener</h1>
-    <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
+    <form id="upload-form" action="/" method="POST" enctype="multipart/form-data">
       <div class="upload-area" id="drop-area" onclick="document.getElementById('file-input').click()">
         <div class="upload-icon">📁</div>
         <p>Click to select or drag and drop an image</p>
