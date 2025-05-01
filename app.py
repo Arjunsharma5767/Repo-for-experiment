@@ -299,13 +299,7 @@ RESULT_HTML = """
     <div class="container">
         <h1>✨ Sharpened Result</h1>
 
-        <div class="comparison-slider">
-            <div class="twentytwenty-container">
-                <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original Image">
-                <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened Image">
-            </div>
-        </div>
-
+        
         <hr>
 
         <div class="image-container">
