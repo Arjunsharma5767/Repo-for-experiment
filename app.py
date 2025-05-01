@@ -130,8 +130,8 @@ input[type="file"] {
   color: #555;
 }
 img {
-  max-width: 300px;
-  max-height: 300px;
+  max-width: 600px;
+  max-height: 600px;
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0,0,0,0.1);
   transition: transform 0.3s ease;
