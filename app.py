@@ -8,6 +8,7 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_FOLDER'] = 'processed'
 
+# Create directories if they don't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['PROCESSED_FOLDER'], exist_ok=True)
 
@@ -177,6 +178,23 @@ img:hover {
   color: #555;
   cursor: pointer;
 }
+.twentytwenty-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(0,0,0,0.1);
+}
+.twentytwenty-container img {
+  width: 100%;
+  display: block;
+}
+hr {
+  margin: 40px 0; 
+  border: 0; 
+  border-top: 1px solid #ccc;
+}
 """
 
 # ========== INDEX HTML ==========
@@ -253,6 +271,7 @@ INDEX_HTML = """
 </html>
 """
 
+# ========== RESULT HTML ==========
 RESULT_HTML = """
 <!DOCTYPE html>
 <html>
@@ -263,38 +282,23 @@ RESULT_HTML = """
 
     <!-- jQuery + twentytwenty -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/twentytwenty.min.css" />
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.event.move/2.0.0/jquery.event.move.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/jquery.twentytwenty.min.js"></script>
-
-    <style>
-      .twentytwenty-container {
-        width: 100%;
-        max-width: 600px;
-        margin: 0 auto;
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 0 15px rgba(0,0,0,0.1);
-      }
-      .twentytwenty-container img {
-        width: 100%;
-        display: block;
-      }
-    </style>
 </head>
 <body>
     <div class="container">
         <h1>✨ Sharpened Result</h1>
 
         <div class="image-container">
-            <h3>🔁 Compare with Slider</h3>
+            <h3>🔁 Interactive Comparison</h3>
             <div class="twentytwenty-container">
                 <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original">
-                <img src="{{ url_for('processed_file', filename=filename) }}" alt="Edited">
+                <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened">
             </div>
         </div>
 
-        <hr style="margin: 40px 0; border: 0; border-top: 1px solid #ccc;">
+        <hr>
 
         <div class="image-container">
             <h3>🖼️ Side by Side View</h3>
@@ -304,15 +308,14 @@ RESULT_HTML = """
                     <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original Image">
                 </div>
                 <div class="image-box">
-                    <h3>Edited</h3>
-                    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Edited Image">
+                    <h3>Sharpened</h3>
+                    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened Image">
                 </div>
             </div>
 
             <div class="action-buttons">
-                <a href="{{ url_for('processed_file', filename=filename) }}" class="button download" target="_blank">View Sharpened</a>
-                <a href="{{ url_for('download_file', filename=filename) }}" class="button">Download</a>
-                <a href="{{ url_for('index') }}" class="button">🔙 Go Back</a>
+                <a href="{{ url_for('download_file', filename=filename) }}" class="button download">⬇️ Download Sharpened</a>
+                <a href="{{ url_for('index') }}" class="button">⏪ Process Another Image</a>
             </div>
         </div>
     </div>
@@ -329,43 +332,88 @@ RESULT_HTML = """
 """
 
 # ========== IMAGE PROCESSING ==========
-def sharpen_image(input_path, output_path, intensity=5, grayscale=False):
+def sharpen_image(input_path, output_path, intensity=3, grayscale=False):
+    """
+    Apply sharpening filter to image
+    
+    Parameters:
+    - input_path: Path to the input image
+    - output_path: Path to save the processed image
+    - intensity: Sharpening intensity (1-5)
+    - grayscale: Whether to convert to grayscale
+    """
+    # Read the image
     image = cv2.imread(input_path)
+    
+    # Convert to grayscale if requested
     if grayscale:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Convert back to BGR so we can save as color (but still grayscale)
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    kernel = np.array([[0, -1, 0],
-                       [-1, 4 + intensity, -1],
-                       [0, -1, 0]])
+    
+    # Create sharpening kernel - adjust central value based on intensity
+    kernel = np.array([[-1, -1, -1],
+                      [-1, 9 + (intensity - 3), -1],
+                      [-1, -1, -1]])
+    
+    # Apply the sharpening filter
     sharpened = cv2.filter2D(image, -1, kernel)
+    
+    # Save the processed image
     cv2.imwrite(output_path, sharpened)
 
 # ========== ROUTES ==========
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
+        # Check if image file was uploaded
+        if 'image' not in request.files:
+            return redirect(request.url)
+        
         file = request.files['image']
-        intensity = int(request.form.get('intensity', 5))
-        grayscale = 'grayscale' in request.form
+        
+        # If user doesn't select a file, browser submits an empty file
+        if file.filename == '':
+            return redirect(request.url)
+        
+        # Process the image if it exists
         if file:
+            # Secure the filename to prevent directory traversal attacks
             filename = secure_filename(file.filename)
+            
+            # Define file paths
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             output_path = os.path.join(app.config['PROCESSED_FOLDER'], filename)
+            
+            # Save the uploaded file
             file.save(input_path)
+            
+            # Get image processing parameters
+            intensity = int(request.form.get('intensity', 3))
+            grayscale = request.form.get('grayscale') == 'yes'
+            
+            # Process the image
             sharpen_image(input_path, output_path, intensity, grayscale)
+            
+            # Render the result page
             return render_template_string(RESULT_HTML, filename=filename, css=CSS_STYLE)
+    
+    # Render the index page for GET requests
     return render_template_string(INDEX_HTML, css=CSS_STYLE)
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
+    """Serve original uploaded files"""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/processed/<filename>')
 def processed_file(filename):
+    """Serve processed files"""
     return send_from_directory(app.config['PROCESSED_FOLDER'], filename)
 
 @app.route('/download/<filename>')
 def download_file(filename):
+    """Download processed files as attachments"""
     return send_from_directory(app.config['PROCESSED_FOLDER'], filename, as_attachment=True)
 
 if __name__ == '__main__':
