@@ -1,7 +1,7 @@
 import os
 import cv2
 import numpy as np
-from flask import Flask, request, send_from_directory, render_template_string
+from flask import Flask, request, send_from_directory, render_template_string, url_for
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -11,25 +11,216 @@ app.config['PROCESSED_FOLDER'] = 'processed'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['PROCESSED_FOLDER'], exist_ok=True)
 
-INDEX_HTML = """<!DOCTYPE html>
+# ========== CSS ==========
+CSS_STYLE = """
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.container {
+  background: white;
+  width: 90%;
+  max-width: 800px;
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+  text-align: center;
+}
+h1 {
+  color: #333;
+  margin-bottom: 30px;
+  font-weight: 700;
+  font-size: 2.2rem;
+}
+.upload-area {
+  border: 2px dashed #ccc;
+  border-radius: 10px;
+  padding: 30px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.upload-area:hover {
+  border-color: #4285f4;
+  background-color: #f8f9fa;
+}
+.upload-icon {
+  font-size: 48px;
+  color: #4285f4;
+  margin-bottom: 10px;
+}
+input[type="file"] {
+  display: none;
+}
+.control-panel {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+}
+.button {
+  padding: 12px 24px;
+  background: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  margin: 10px 5px;
+}
+.button:hover {
+  background: #3367d6;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+.slider-container {
+  margin: 20px 0;
+  text-align: left;
+}
+.slider-container label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #555;
+}
+.slider {
+  width: 100%;
+  height: 5px;
+  border-radius: 5px;
+  -webkit-appearance: none;
+  background: #ddd;
+  outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4285f4;
+  cursor: pointer;
+}
+.image-container {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.image-wrapper {
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.image-box {
+  margin: 10px;
+  text-align: center;
+}
+.image-box h3 {
+  margin-bottom: 10px;
+  color: #555;
+}
+img {
+  max-width: 300px;
+  max-height: 300px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+}
+img:hover {
+  transform: scale(1.03);
+}
+.back-link {
+  display: block;
+  margin-top: 20px;
+  color: #4285f4;
+  text-decoration: none;
+  font-weight: 600;
+}
+"""
+
+# ========== INDEX HTML ==========
+INDEX_HTML = """
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Sharpener</title>
   <style>{{ css }}</style>
 </head>
 <body>
   <div class="container">
-    <h1>🔍 Image Sharpener</h1>
-    <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="image" accept="image/*" required>
-      <button type="submit">Upload & Sharpen</button>
+    <h1>🔍 Professional Image Sharpener</h1>
+    <form id="upload-form" method="POST" enctype="multipart/form-data">
+      <div class="upload-area" id="drop-area" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">📁</div>
+        <p>Click to select or drag and drop an image</p>
+      </div>
+      <input type="file" id="file-input" name="image" accept="image/*" required>
+      <div class="control-panel">
+        <div class="slider-container">
+          <label for="intensity">Sharpening Intensity: <span id="intensity-value">5</span></label>
+          <input type="range" id="intensity" name="intensity" class="slider" min="1" max="10" value="5">
+        </div>
+        <button type="submit" class="button">Upload & Sharpen</button>
+      </div>
     </form>
   </div>
+  <script>
+    const intensitySlider = document.getElementById('intensity');
+    const intensityValue = document.getElementById('intensity-value');
+    intensitySlider.addEventListener('input', function() {
+      intensityValue.textContent = this.value;
+    });
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('file-input');
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, highlight, false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, unhighlight, false);
+    });
+    function highlight() {
+      dropArea.style.borderColor = '#4285f4';
+      dropArea.style.backgroundColor = '#f0f7ff';
+    }
+    function unhighlight() {
+      dropArea.style.borderColor = '#ccc';
+      dropArea.style.backgroundColor = 'transparent';
+    }
+    dropArea.addEventListener('drop', handleDrop, false);
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length) {
+        fileInput.files = files;
+      }
+    }
+  </script>
 </body>
-</html>"""
+</html>
+"""
 
-RESULT_HTML = """<!DOCTYPE html>
+# ========== RESULT HTML ==========
+RESULT_HTML = """
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -38,64 +229,42 @@ RESULT_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <div class="container">
-    <h1>✨ Sharpened Image</h1>
-    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened Image">
-    <br><a href="/">⏪ Back</a>
+    <h1>✨ Sharpened Result</h1>
+    <div class="image-container">
+      <div class="image-wrapper">
+        <div class="image-box">
+          <h3>Processed Image</h3>
+          <img src="{{ url_for('processed_file', filename=filename) }}" alt="Processed Image">
+        </div>
+      </div>
+      <a href="/" class="back-link">⏪ Go Back</a>
+    </div>
   </div>
 </body>
-</html>"""
+</html>
+"""
 
-CSS_STYLE = """body {
-  font-family: Arial, sans-serif;
-  background: #f5f5f5;
-  text-align: center;
-  padding-top: 50px;
-}
-.container {
-  background: white;
-  padding: 30px;
-  border-radius: 10px;
-  display: inline-block;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-input[type="file"] {
-  margin: 10px 0;
-}
-button {
-  padding: 10px 20px;
-  background: #FF5733;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-img {
-  max-width: 80%;
-  height: auto;
-  margin-top: 20px;
-  border-radius: 10px;
-}"""
-
-def sharpen_image(image_path, output_path):
-    image = cv2.imread(image_path)
+# ========== SHARPEN FUNCTION ==========
+def sharpen_image(input_path, output_path, intensity=5):
+    image = cv2.imread(input_path)
     kernel = np.array([[0, -1, 0],
-                       [-1, 5,-1],
+                       [-1, 4 + intensity, -1],
                        [0, -1, 0]])
     sharpened = cv2.filter2D(image, -1, kernel)
     cv2.imwrite(output_path, sharpened)
 
+# ========== ROUTES ==========
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         file = request.files['image']
+        intensity = int(request.form.get('intensity', 5))
         if file:
             filename = secure_filename(file.filename)
             input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(input_path)
-
             output_path = os.path.join(app.config['PROCESSED_FOLDER'], filename)
-            sharpen_image(input_path, output_path)
-
+            file.save(input_path)
+            sharpen_image(input_path, output_path, intensity)
             return render_template_string(RESULT_HTML, filename=filename, css=CSS_STYLE)
     return render_template_string(INDEX_HTML, css=CSS_STYLE)
 
@@ -104,4 +273,4 @@ def processed_file(filename):
     return send_from_directory(app.config['PROCESSED_FOLDER'], filename)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    app.run(debug=True)
