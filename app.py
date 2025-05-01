@@ -12,6 +12,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['PROCESSED_FOLDER'], exist_ok=True)
 
 # ========== CSS ==========
+# CSS style
 CSS_STYLE = """
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -136,8 +137,8 @@ input[type="file"] {
   color: #555;
 }
 img {
-  max-width: 600px;
-  max-height: 600px;
+  max-width: 350px;
+  max-height: 350px;
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0,0,0,0.1);
   transition: transform 0.3s ease;
@@ -178,8 +179,9 @@ img:hover {
   cursor: pointer;
 }
 """
-
 # ========== INDEX HTML ==========
+
+# Define the index page HTML
 INDEX_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -192,7 +194,7 @@ INDEX_HTML = """
 <body>
   <div class="container">
     <h1>🔍 Professional Image Sharpener</h1>
-    <form id="upload-form" method="POST" enctype="multipart/form-data">
+    <form id="upload-form" action="/upload" method="POST" enctype="multipart/form-data">
       <div class="upload-area" id="drop-area" onclick="document.getElementById('file-input').click()">
         <div class="upload-icon">📁</div>
         <p>Click to select or drag and drop an image</p>
@@ -200,7 +202,7 @@ INDEX_HTML = """
       <input type="file" id="file-input" name="image" accept="image/*" required>
       <div class="control-panel">
         <div class="slider-container">
-          <label for="intensity">Sharpening Intensity: <span id="intensity-value">2</span></label>
+          <label for="intensity">Sharpening Intensity: <span id="intensity-value">3</span></label>
           <input type="range" id="intensity" name="intensity" class="slider" min="1" max="5" value="3">
         </div>
         
@@ -257,6 +259,7 @@ INDEX_HTML = """
 
 # ========== RESULT HTML ==========
 RESULT_HTML = """
+RESULT_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -267,8 +270,14 @@ RESULT_HTML = """
 <body>
   <div class="container">
     <h1>✨ Sharpened Result</h1>
+    
     <div class="image-container">
       <div class="image-wrapper">
+        <div class="image-box">
+          <h3>Original Image</h3>
+          <img src="{{ url_for('processed_file', filename=original_filename) }}" alt="Original Image">
+        </div>
+        
         <div class="image-box">
           <h3>Processed Image</h3>
           <img src="{{ url_for('processed_file', filename=filename) }}" alt="Processed Image">
@@ -276,8 +285,8 @@ RESULT_HTML = """
       </div>
       
       <div class="action-buttons">
-        <a href="{{ url_for('download_file', filename=filename) }}" class="button download">⬇️ Download Image</a>
-        <a href="/" class="button">⏪ Go Back</a>
+        <a href="{{ url_for('download_file', filename=filename) }}" class="button download">⬇️ Download Processed Image</a>
+        <a href="/" class="button">⏪ Process Another Image</a>
       </div>
     </div>
   </div>
