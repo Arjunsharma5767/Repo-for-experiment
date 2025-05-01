@@ -26,7 +26,7 @@ body {
 .container {
   background: white;
   width: 90%;
-  max-width: 800px;
+  max-width: 1000px;
   padding: 40px;
   border-radius: 15px;
   box-shadow: 0 15px 30px rgba(0,0,0,0.1);
@@ -261,24 +261,57 @@ RESULT_HTML = """
     <title>Sharpened Result</title>
     <meta charset="UTF-8">
     <style>{{ css }}</style>
+    <!-- jQuery & twentytwenty slider -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/twentytwenty/css/twentytwenty.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-event-move/js/jquery.event.move.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/twentytwenty/js/jquery.twentytwenty.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>✨ Sharpened Result</h1>
+
         <div class="image-container">
-            <div class="image-wrapper">
-                <div class="image-box">
-                    <h3>Sharpened Image</h3>
-                    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened Image">
+            <h3>🔁 Compare with Slider</h3>
+            <div id="slider" style="max-width: 600px; margin: 0 auto;">
+                <div class="twentytwenty-container">
+                    <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original Image">
+                    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Edited Image">
                 </div>
             </div>
+        </div>
+
+        <hr style="margin: 40px 0; border: 0; border-top: 1px solid #ccc;">
+
+        <div class="image-container">
+            <h3>🖼️ Side by Side View</h3>
+            <div class="image-wrapper">
+                <div class="image-box">
+                    <h3>Original</h3>
+                    <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original Image">
+                </div>
+                <div class="image-box">
+                    <h3>Edited</h3>
+                    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Edited Image">
+                </div>
+            </div>
+
             <div class="action-buttons">
-                <a href="{{ url_for('processed_file', filename=filename) }}" class="button download" target="_blank">View Image</a>
-                <a href="{{ url_for('download_file', filename=filename) }}" class="button">Download Image</a>
+                <a href="{{ url_for('processed_file', filename=filename) }}" class="button download" target="_blank">View Sharpened</a>
+                <a href="{{ url_for('download_file', filename=filename) }}" class="button">Download</a>
                 <a href="{{ url_for('index') }}" class="button">🔙 Go Back</a>
             </div>
         </div>
     </div>
+
+    <script>
+      $(function(){
+        $(".twentytwenty-container").twentytwenty({
+          default_offset_pct: 0.5,
+          orientation: 'horizontal'
+        });
+      });
+    </script>
 </body>
 </html>
 """
@@ -310,6 +343,10 @@ def index():
             sharpen_image(input_path, output_path, intensity, grayscale)
             return render_template_string(RESULT_HTML, filename=filename, css=CSS_STYLE)
     return render_template_string(INDEX_HTML, css=CSS_STYLE)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/processed/<filename>')
 def processed_file(filename):
