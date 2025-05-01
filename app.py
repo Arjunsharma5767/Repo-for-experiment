@@ -253,7 +253,6 @@ INDEX_HTML = """
 </html>
 """
 
-# ========== RESULT HTML ==========
 RESULT_HTML = """
 <!DOCTYPE html>
 <html>
@@ -261,11 +260,27 @@ RESULT_HTML = """
     <title>Sharpened Result</title>
     <meta charset="UTF-8">
     <style>{{ css }}</style>
-    <!-- jQuery & twentytwenty slider -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/twentytwenty/css/twentytwenty.css">
+
+    <!-- jQuery + twentytwenty -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/twentytwenty.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jquery-event-move/js/jquery.event.move.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/twentytwenty/js/jquery.twentytwenty.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.event.move/2.0.0/jquery.event.move.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/jquery.twentytwenty.min.js"></script>
+
+    <style>
+      .twentytwenty-container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      }
+      .twentytwenty-container img {
+        width: 100%;
+        display: block;
+      }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -273,11 +288,9 @@ RESULT_HTML = """
 
         <div class="image-container">
             <h3>🔁 Compare with Slider</h3>
-            <div id="slider" style="max-width: 600px; margin: 0 auto;">
-                <div class="twentytwenty-container">
-                    <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original Image">
-                    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Edited Image">
-                </div>
+            <div class="twentytwenty-container">
+                <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="Original">
+                <img src="{{ url_for('processed_file', filename=filename) }}" alt="Edited">
             </div>
         </div>
 
@@ -307,8 +320,7 @@ RESULT_HTML = """
     <script>
       $(function(){
         $(".twentytwenty-container").twentytwenty({
-          default_offset_pct: 0.5,
-          orientation: 'horizontal'
+          default_offset_pct: 0.5
         });
       });
     </script>
