@@ -258,41 +258,21 @@ INDEX_HTML = """
 """
 
 # ========== RESULT HTML ==========
-RESULT_HTML = """
-RESULT_HTML = """
+result_html = """
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Result</title>
-  <style>{{ css }}</style>
+    <title>Sharpened Result</title>
+    <meta charset="UTF-8">
 </head>
 <body>
-  <div class="container">
     <h1>✨ Sharpened Result</h1>
-    
-    <div class="image-container">
-      <div class="image-wrapper">
-        <div class="image-box">
-          <h3>Original Image</h3>
-          <img src="{{ url_for('processed_file', filename=original_filename) }}" alt="Original Image">
-        </div>
-        
-        <div class="image-box">
-          <h3>Processed Image</h3>
-          <img src="{{ url_for('processed_file', filename=filename) }}" alt="Processed Image">
-        </div>
-      </div>
-      
-      <div class="action-buttons">
-        <a href="{{ url_for('download_file', filename=filename) }}" class="button download">⬇️ Download Processed Image</a>
-        <a href="/" class="button">⏪ Process Another Image</a>
-      </div>
-    </div>
-  </div>
+    <img src="{{ url_for('processed_file', filename=filename) }}" alt="Sharpened Image">
 </body>
 </html>
 """
+return render_template_string(result_html, filename=processed_filename)
+
 
 # ========== IMAGE PROCESSING FUNCTIONS ==========
 def sharpen_image(input_path, output_path, intensity=5, grayscale=False):
